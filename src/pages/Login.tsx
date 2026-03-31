@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth } from '../lib/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
@@ -13,9 +13,27 @@ export default function Login() {
   const [step, setStep] = useState<'PHONE' | 'OTP'>('PHONE');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [resendTimer, setResendTimer] = useState(0);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const navigate = useNavigate();
   const { user, isAuthReady } = useAppContext();
+  const otpInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (resendTimer > 0 && step === 'OTP') {
+      interval = setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendTimer, step]);
+
+  useEffect(() => {
+    if (step === 'OTP' && otpInputRef.current) {
+      otpInputRef.current.focus();
+    }
+  }, [step]);
 
   useEffect(() => {
     if (isAuthReady && user) {
@@ -70,6 +88,7 @@ export default function Login() {
       const confirmation = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
       setConfirmationResult(confirmation);
       setStep('OTP');
+      setResendTimer(30);
     } catch (err: any) {
       console.error('Error sending OTP:', err);
       setError(err.message || 'Failed to send OTP. Please try again.');
@@ -153,6 +172,7 @@ export default function Login() {
                   Enter OTP
                 </label>
                 <input
+                  ref={otpInputRef}
                   type="text"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -165,18 +185,30 @@ export default function Login() {
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                 {loading ? 'Verifying...' : 'Verify & Login'}
               </Button>
-              <div className="text-center mt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep('PHONE');
-                    setOtp('');
-                    setError('');
-                  }}
-                  className="text-sm text-primary hover:underline"
-                >
-                  Change Mobile Number
-                </button>
+              <div className="text-center mt-4 space-y-3">
+                <div className="block">
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={resendTimer > 0 || loading}
+                    className="text-sm font-medium text-primary hover:underline disabled:opacity-50 disabled:hover:no-underline"
+                  >
+                    {resendTimer > 0 ? `Resend OTP in ${resendTimer}s` : 'Resend OTP'}
+                  </button>
+                </div>
+                <div className="block">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep('PHONE');
+                      setOtp('');
+                      setError('');
+                    }}
+                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    Change Mobile Number
+                  </button>
+                </div>
               </div>
             </form>
           )}
