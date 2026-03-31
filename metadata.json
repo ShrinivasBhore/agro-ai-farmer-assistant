@@ -1,0 +1,5 @@
+{
+  "name": "Kisan Mitra - AI Farmer Assistant",
+  "description": "Smart Agriculture Support System for Indian Farmers with multilingual support, disease detection, and crop planning.",
+  "requestFramePermissions": ["camera", "microphone", "geolocation"]
+}
